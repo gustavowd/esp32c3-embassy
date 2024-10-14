@@ -22,6 +22,8 @@ use reqwless::client::HttpClient;
 use reqwless::client::TlsConfig;
 use reqwless::client::TlsVerify;
 use reqwless::request::Method;
+use reqwless::request::RequestBuilder;
+use reqwless::headers::ContentType;
 use reqwless::Error as ReqlessError;
 
 use heapless::Vec;
@@ -39,7 +41,8 @@ const RESPONSE_SIZE: usize = 4096;
 /// [`WorldTimeApiClient`][crate::worldtimeapi::WorldTimeApiClient].
 pub trait ClientTrait {
     /// Send an HTTP request
-    async fn send_request(&mut self, url: &str) -> Result<Vec<u8, RESPONSE_SIZE>, Error>;
+    async fn get_request(&mut self, url: &str) -> Result<Vec<u8, RESPONSE_SIZE>, Error>;
+    async fn post_request(&mut self, url: &str, ct: ContentType, body: &[u8]) -> Result<Vec<u8, RESPONSE_SIZE>, Error>;
 }
 
 /// HTTP client
@@ -79,7 +82,7 @@ impl Client {
 }
 
 impl ClientTrait for Client {
-    async fn send_request(&mut self, url: &str) -> Result<Vec<u8, RESPONSE_SIZE>, Error> {
+    async fn get_request(&mut self, url: &str) -> Result<Vec<u8, RESPONSE_SIZE>, Error> {
         debug!("Send HTTPs request to {url}");
 
         debug!("Create DNS socket");
@@ -105,6 +108,49 @@ impl ClientTrait for Client {
 
         debug!("Send HTTP request");
         let response = request.send(&mut buffer).await?;
+
+        debug!("Response status: {:?}", response.status);
+
+        let buffer = response.body().read_to_end().await?;
+
+        debug!("Read {} bytes", buffer.len());
+
+        let output =
+            Vec::<u8, RESPONSE_SIZE>::from_slice(buffer).map_err(|()| Error::ResponseTooLarge)?;
+
+        Ok(output)
+    }
+
+    async fn post_request(&mut self, url: &str, ct: ContentType, body: &[u8]) -> Result<Vec<u8, RESPONSE_SIZE>, Error> {
+        debug!("Send HTTPs request to {url}");
+
+        debug!("Create DNS socket");
+        let dns_socket = DnsSocket::new(self.stack);
+
+        let seed = self.rng.next_u64();
+        let tls_config = TlsConfig::new(
+            seed,
+            &mut self.read_record_buffer,
+            &mut self.write_record_buffer,
+            TlsVerify::None,
+        );
+
+        debug!("Create TCP client");
+        let tcp_client = TcpClient::new(self.stack, &self.tcp_client_state);
+
+        debug!("Create HTTP client");
+        let mut client = HttpClient::new_with_tls(&tcp_client, &dns_socket, tls_config);
+
+        debug!("Create HTTP request");
+        let mut buffer = [0_u8; 4096];
+        let mut request = client
+            .request(Method::POST, url)
+            .await?
+            .body(body)
+            .content_type(ct);
+
+        debug!("Send HTTP request");
+        let response = request.send(&mut buffer).await.unwrap();
 
         debug!("Response status: {:?}", response.status);
 

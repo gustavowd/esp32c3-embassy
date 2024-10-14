@@ -27,7 +27,7 @@ pub trait WorldTimeApiClient: HttpClientTrait {
     async fn fetch_current_time(&mut self) -> Result<OffsetDateTime, Error> {
         let url = "https://worldtimeapi.org/api/timezone/America/Sao_Paulo.txt";
 
-        let response = self.send_request(url).await?;
+        let response = self.get_request(url).await?;
 
         let text = from_utf8(&response)?;
         let mut timestamp: Option<u64> = None;

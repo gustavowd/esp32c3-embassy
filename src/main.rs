@@ -148,9 +148,20 @@ async fn main(spawner: Spawner) {
 
     let url = "https://worldtimeapi.org/api/timezone/America/Sao_Paulo.txt";
 
-    let response = http_client.send_request(url).await.unwrap();
+    let response = http_client.get_request(url).await.unwrap();
     let ret = heapless::String::from_utf8(response).unwrap();
     println!("Response: {}", ret);
+
+    let data = br#"{"username":"Marcel","password":"supersecret","this is a":"test"}"#;
+    let url2 = "https://httpdump.app/dumps/ddc0c046-5b12-4742-b757-5a7dcc11d65d";
+    match http_client.post_request(url2,reqwless::headers::ContentType::TextPlain, data).await {
+        Ok(response) => {
+            let ret = heapless::String::from_utf8(response).unwrap();
+            println!("Response: {}", ret);
+        },
+        Err(err) => println!("Error: {:?}", err)
+    }
+
 
     loop {
         Timer::after(Duration::from_millis(1_000)).await;
