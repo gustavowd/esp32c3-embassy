@@ -38,13 +38,8 @@ use esp_println::println;
 use esp_wifi::{
     init,
     wifi::{
-        ClientConfiguration,
-        Configuration,
-        WifiController,
-        WifiDevice,
-        WifiEvent,
-        WifiStaDevice,
-        WifiState,
+        ClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiStaDevice, WifiState
+        //AuthMethod, EapClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiStaDevice, WifiState
     },
     EspWifiInitFor,
 };
@@ -60,6 +55,7 @@ macro_rules! mk_static {
 }
 
 const SSID: &str = "SE28CP";
+const USERNAME: &str = "gustavo";
 const PASSWORD: &str = "12345678";
 
 #[embassy_executor::task]
@@ -152,6 +148,7 @@ async fn main(spawner: Spawner) {
     let ret = heapless::String::from_utf8(response).unwrap();
     println!("Response: {}", ret);
 
+    /*
     let data = br#"{"username":"Marcel","password":"supersecret","this is a":"test"}"#;
     let url2 = "https://httpdump.app/dumps/ddc0c046-5b12-4742-b757-5a7dcc11d65d";
     match http_client.post_request(url2,reqwless::headers::ContentType::TextPlain, data).await {
@@ -161,6 +158,7 @@ async fn main(spawner: Spawner) {
         },
         Err(err) => println!("Error: {:?}", err)
     }
+    */
 
 
     loop {
@@ -217,6 +215,15 @@ async fn connection(mut controller: WifiController<'static>) {
         }
 
         if !matches!(controller.is_started(), Ok(true)) {
+            /*
+            let client_config = Configuration::EapClient( EapClientConfiguration {
+                ssid: SSID.try_into().unwrap(),
+                username: Some(USERNAME.try_into().unwrap()),
+                password: Some(PASSWORD.try_into().unwrap()),
+                auth_method: AuthMethod::WPA2Enterprise,
+                ..Default::default()
+            });
+            */
             let client_config = Configuration::Client(ClientConfiguration {
                 ssid: SSID.try_into().unwrap(),
                 password: PASSWORD.try_into().unwrap(),
