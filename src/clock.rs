@@ -59,9 +59,10 @@ impl Clock {
     /// Create a new clock by synchronizing with a server
     pub async fn from_server(
         http_client: &mut HttpClient,
+        timeout: Duration,
         // stack: &'static Stack<WifiDevice<'static, WifiStaDevice>>,
     ) -> Result<Self, Error> {
-        let now = http_client.fetch_current_time().await?;
+        let now = http_client.fetch_current_time(timeout).await?;
 
         let current_time = now.unix_timestamp();
 

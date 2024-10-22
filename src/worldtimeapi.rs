@@ -10,6 +10,7 @@ use core::num::ParseIntError;
 use core::str::from_utf8;
 use core::str::Utf8Error;
 
+use embassy_time::Duration;
 use log::debug;
 use log::trace;
 
@@ -24,10 +25,10 @@ use crate::http::Error as HttpError;
 /// Extend an HTTP client for querying World Time API
 pub trait WorldTimeApiClient: HttpClientTrait {
     /// Fetch the current time
-    async fn fetch_current_time(&mut self) -> Result<OffsetDateTime, Error> {
+    async fn fetch_current_time(&mut self, timeout: Duration) -> Result<OffsetDateTime, Error> {
         let url = "https://worldtimeapi.org/api/timezone/America/Sao_Paulo.txt";
 
-        let response = self.get_request(url).await?;
+        let response = self.get_request(url, timeout).await?;
 
         let text = from_utf8(&response)?;
         let mut timestamp: Option<u64> = None;

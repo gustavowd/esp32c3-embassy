@@ -13,6 +13,7 @@ use embassy_net::tcp::client::TcpClientState;
 use embassy_net::tcp::ConnectError as TcpConnectError;
 use embassy_net::tcp::Error as TcpError;
 use embassy_net::Stack;
+use embassy_time::{Duration, WithTimeout};
 use log::debug;
 
 use esp_wifi::wifi::WifiDevice;
@@ -41,7 +42,9 @@ const RESPONSE_SIZE: usize = 4096;
 /// [`WorldTimeApiClient`][crate::worldtimeapi::WorldTimeApiClient].
 pub trait ClientTrait {
     /// Send an HTTP request
-    async fn get_request(&mut self, url: &str) -> Result<Vec<u8, RESPONSE_SIZE>, Error>;
+    #[allow(unused)]
+    async fn get_request(&mut self, url: &str, timeout: Duration) -> Result<Vec<u8, RESPONSE_SIZE>, Error>;
+    #[allow(unused)]
     async fn post_request(&mut self, url: &str, ct: ContentType, body: &[u8]) -> Result<Vec<u8, RESPONSE_SIZE>, Error>;
 }
 
@@ -82,7 +85,7 @@ impl Client {
 }
 
 impl ClientTrait for Client {
-    async fn get_request(&mut self, url: &str) -> Result<Vec<u8, RESPONSE_SIZE>, Error> {
+    async fn get_request(&mut self, url: &str, timeout: Duration) -> Result<Vec<u8, RESPONSE_SIZE>, Error> {
         debug!("Send HTTPs request to {url}");
 
         debug!("Create DNS socket");
@@ -104,7 +107,9 @@ impl ClientTrait for Client {
 
         debug!("Create HTTP request");
         let mut buffer = [0_u8; 4096];
-        let mut request = client.request(Method::GET, url).await?;
+        let mut request = client.request(Method::GET, url)
+            .with_timeout(timeout)
+            .await??;
 
         debug!("Send HTTP request");
         let response = request.send(&mut buffer).await?;
@@ -182,6 +187,14 @@ pub enum Error {
 
     /// Error in HTTP client
     Reqless(#[allow(unused)] ReqlessError),
+
+    Time(embassy_time::TimeoutError)
+}
+
+impl From<embassy_time::TimeoutError> for Error {
+    fn from(error: embassy_time::TimeoutError) -> Self {
+        Self::Time(error)
+    }
 }
 
 impl From<TcpError> for Error {

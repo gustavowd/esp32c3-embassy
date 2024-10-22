@@ -38,8 +38,8 @@ use esp_println::println;
 use esp_wifi::{
     init,
     wifi::{
-        ClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiStaDevice, WifiState
-        //AuthMethod, EapClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiStaDevice, WifiState
+        //ClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiStaDevice, WifiState
+        AuthMethod, EapClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiStaDevice, WifiState
     },
     EspWifiInitFor,
 };
@@ -54,7 +54,9 @@ macro_rules! mk_static {
     }};
 }
 
-const SSID: &str = "SE28CP";
+//const SSID: &str = "SE28CP";
+//const PASSWORD: &str = "12345678";
+const SSID: &str = "UTFPR-SERVIDOR";
 const USERNAME: &str = "gustavo";
 const PASSWORD: &str = "12345678";
 
@@ -139,14 +141,22 @@ async fn main(spawner: Spawner) {
 
     println!("Synchronize clock from server");
     let mut http_client = HttpClient::new(stack, RngWrapper::from(rng));
-    let clock = Clock::from_server(&mut http_client).await.unwrap();
-    println!("Clock: {:?}", clock);
+    if let Ok(clock) = Clock::from_server(&mut http_client, Duration::from_secs(2)).await {
+        println!("Clock: {:?}", clock);
+    }
 
     let url = "https://worldtimeapi.org/api/timezone/America/Sao_Paulo.txt";
 
-    let response = http_client.get_request(url).await.unwrap();
-    let ret = heapless::String::from_utf8(response).unwrap();
-    println!("Response: {}", ret);
+    loop {
+        match http_client.get_request(url, Duration::from_secs(2)).await {
+            Ok(resp) => {
+                let ret = heapless::String::from_utf8(resp).unwrap();
+                println!("Response: {}", ret);
+                break;
+            },
+            Err(err) => println!("Response timeout: {:?}", err)
+        }
+    }
 
     /*
     let data = br#"{"username":"Marcel","password":"supersecret","this is a":"test"}"#;
@@ -215,20 +225,21 @@ async fn connection(mut controller: WifiController<'static>) {
         }
 
         if !matches!(controller.is_started(), Ok(true)) {
-            /*
             let client_config = Configuration::EapClient( EapClientConfiguration {
                 ssid: SSID.try_into().unwrap(),
+                identity: Some(USERNAME.try_into().unwrap()),
                 username: Some(USERNAME.try_into().unwrap()),
                 password: Some(PASSWORD.try_into().unwrap()),
                 auth_method: AuthMethod::WPA2Enterprise,
                 ..Default::default()
             });
-            */
+            /*
             let client_config = Configuration::Client(ClientConfiguration {
                 ssid: SSID.try_into().unwrap(),
                 password: PASSWORD.try_into().unwrap(),
                 ..Default::default()
             });
+            */
             controller.set_configuration(&client_config).unwrap();
             println!("Starting wifi");
             controller.start().await.unwrap();
