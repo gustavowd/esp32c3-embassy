@@ -24,15 +24,18 @@ use crate::worldtimeapi::WorldTimeApiClient as _;
 /// This is a statically allocated variable and it is placed in the RTC Fast
 /// memory, which survives deep sleep.
 #[ram(rtc_fast)]
+#[allow(unused)]
 static mut BOOT_TIME: (u64, i32) = (0, 0);
 
 /// A clock
 #[derive(Clone, Debug)]
 pub struct Clock {
     /// The boot time in Unix epoch
+    #[allow(unused)]
     boot_time: u64,
 
     /// The time offset
+    #[allow(unused)]
     offset: UtcOffset,
 }
 
@@ -46,6 +49,7 @@ impl Clock {
     }
 
     /// Return the current time
+    #[allow(unused)]
     pub fn now(&self) -> Result<OffsetDateTime, Error> {
         let epoch = self.now_as_epoch();
         #[allow(clippy::cast_possible_wrap)]
@@ -75,6 +79,7 @@ impl Clock {
     }
 
     /// Initialize clock from RTC Fast memory
+    #[allow(unused)]
     pub fn from_rtc_memory() -> Option<Self> {
         // SAFETY:
         // There is only one thread
@@ -89,6 +94,7 @@ impl Clock {
     }
 
     /// Store clock into RTC Fast memory
+    #[allow(unused)]
     pub fn save_to_rtc_memory(&self, expected_sleep_duration: Duration) {
         let now = self.now_as_epoch();
         let then = now + expected_sleep_duration.as_secs();
@@ -105,12 +111,14 @@ impl Clock {
     /// * At 09:46:12 with period 1 minute, next rounded wakeup is 09:47:00.
     /// * At 09:46:12 with period 5 minutes, next rounded wakeup is 09:50:00.
     /// * At 09:46:12 with period 1 hour, next rounded wakeup is 10:00:00.
+    #[allow(unused)]
     pub fn duration_to_next_rounded_wakeup(&self, period: Duration) -> Duration {
         let epoch = Duration::from_secs(self.now_as_epoch());
         duration_to_next_rounded_wakeup(epoch, period)
     }
 
     /// Return current time as a Unix epoch
+    #[allow(unused)]
     pub fn now_as_epoch(&self) -> u64 {
         let from_boot = Instant::now().as_secs();
         self.boot_time + from_boot
