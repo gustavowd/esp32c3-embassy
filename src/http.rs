@@ -16,9 +16,6 @@ use embassy_net::Stack;
 use embassy_time::{Duration, WithTimeout};
 use log::debug;
 
-use esp_wifi::wifi::WifiDevice;
-use esp_wifi::wifi::WifiStaDevice;
-
 use reqwless::client::HttpClient;
 use reqwless::client::TlsConfig;
 use reqwless::client::TlsVerify;
@@ -49,9 +46,9 @@ pub trait ClientTrait {
 }
 
 /// HTTP client
-pub struct Client {
+pub struct Client<'a> {
     /// Wifi stack
-    stack: &'static Stack<WifiDevice<'static, WifiStaDevice>>,
+    stack: Stack<'a>,
 
     /// Random numbers generator
     rng: RngWrapper,
@@ -66,9 +63,9 @@ pub struct Client {
     write_record_buffer: [u8; 16640],
 }
 
-impl Client {
+impl<'a> Client<'a> {
     /// Create a new client
-    pub fn new(stack: &'static Stack<WifiDevice<'static, WifiStaDevice>>, rng: RngWrapper) -> Self {
+    pub fn new(stack: Stack<'a>, rng: RngWrapper) -> Self {
         debug!("Create TCP client state");
         let tcp_client_state = TcpClientState::<1, 4096, 4096>::new();
 
@@ -84,7 +81,7 @@ impl Client {
     }
 }
 
-impl ClientTrait for Client {
+impl ClientTrait for Client<'static> {
     async fn get_request(&mut self, url: &str, timeout: Duration) -> Result<Vec<u8, RESPONSE_SIZE>, Error> {
         debug!("Send HTTPs request to {url}");
 

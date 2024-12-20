@@ -30,7 +30,7 @@ use self::clock::Clock;
 
 mod worldtimeapi;
 
-use embassy_net::{tcp::TcpSocket, Ipv4Address, Stack, StackResources};
+use embassy_net::{tcp::TcpSocket, Ipv4Address, StackResources};
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::{prelude::*, rng::Rng, timer::timg::TimerGroup};
@@ -103,6 +103,8 @@ async fn main(spawner: Spawner) {
     let seed = 1234; // very random, very secure seed
 
     // Init network stack
+    let (stack, runner) = embassy_net::new(wifi_interface, config, mk_static!(StackResources<3>, StackResources::<3>::new()), seed);
+    /*
     let stack = &*mk_static!(
         Stack<WifiDevice<'_, WifiStaDevice>>,
         Stack::new(
@@ -112,9 +114,10 @@ async fn main(spawner: Spawner) {
             seed
         )
     );
+    */
 
     spawner.spawn(connection(controller)).ok();
-    spawner.spawn(net_task(stack)).ok();
+    spawner.spawn(net_task(runner)).ok();
     spawner.spawn(run()).ok();
 
     let mut rx_buffer = [0; 4096];
@@ -137,6 +140,7 @@ async fn main(spawner: Spawner) {
     }
 
     println!("Synchronize clock from server");
+    //let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
     let mut http_client = HttpClient::new(stack, RngWrapper::from(rng));
     if let Ok(clock) = Clock::from_server(&mut http_client, Duration::from_secs(2)).await {
         println!("Clock: {:?}", clock);
@@ -254,7 +258,14 @@ async fn connection(mut controller: WifiController<'static>) {
     }
 }
 
+/*
 #[embassy_executor::task]
 async fn net_task(stack: &'static Stack<WifiDevice<'static, WifiStaDevice>>) {
     stack.run().await
+}
+*/
+
+#[embassy_executor::task]
+async fn net_task(mut runner: embassy_net::Runner<'static, WifiDevice<'static, WifiStaDevice>>) -> ! {
+    runner.run().await
 }

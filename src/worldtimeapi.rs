@@ -68,7 +68,7 @@ pub trait WorldTimeApiClient: HttpClientTrait {
     }
 }
 
-impl WorldTimeApiClient for HttpClient {}
+impl WorldTimeApiClient for HttpClient<'static> {}
 
 /// An error within a request to World Time API
 #[derive(Debug)]

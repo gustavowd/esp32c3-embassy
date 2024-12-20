@@ -62,7 +62,7 @@ impl Clock {
 
     /// Create a new clock by synchronizing with a server
     pub async fn from_server(
-        http_client: &mut HttpClient,
+        http_client: &mut HttpClient<'static>,
         timeout: Duration,
         // stack: &'static Stack<WifiDevice<'static, WifiStaDevice>>,
     ) -> Result<Self, Error> {
