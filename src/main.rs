@@ -38,10 +38,10 @@ use esp_println::println;
 use esp_wifi::{
     init,
     wifi::{
-        //ClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiStaDevice, WifiState
-        AuthMethod, EapClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiStaDevice, WifiState
+        ClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiStaDevice, WifiState
+        //AuthMethod, EapClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiStaDevice, WifiState
     },
-    EspWifiInitFor,
+    EspWifiController
 };
 
 // When you are okay with using a nightly compiler it's better to use https://docs.rs/static_cell/2.1.0/static_cell/macro.make_static.html
@@ -54,11 +54,11 @@ macro_rules! mk_static {
     }};
 }
 
-//const SSID: &str = "SE28CP";
-//const PASSWORD: &str = "12345678";
-const SSID: &str = "UTFPR-SERVIDOR";
-const USERNAME: &str = "gustavo";
+const SSID: &str = "SE28CP";
 const PASSWORD: &str = "12345678";
+//const SSID: &str = "UTFPR-SERVIDOR";
+//const USERNAME: &str = "gustavo";
+//const PASSWORD: &str = "12345678";
 
 #[embassy_executor::task]
 async fn run() {
@@ -82,17 +82,14 @@ async fn main(spawner: Spawner) {
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     let rng = Rng::new(peripherals.RNG);
 
-    let init = init(
-        EspWifiInitFor::Wifi,
-        timg0.timer0,
-        rng,
-        peripherals.RADIO_CLK,
-    )
-    .unwrap();
+    let init = &*mk_static!(
+        EspWifiController<'static>,
+        init(timg0.timer0, rng, peripherals.RADIO_CLK).unwrap()
+    );
 
     let wifi = peripherals.WIFI;
     let (wifi_interface, controller) =
-        esp_wifi::wifi::new_with_mode(&init, wifi, WifiStaDevice).unwrap();
+        esp_wifi::wifi::new_with_mode(init, wifi, WifiStaDevice).unwrap();
 
     //let timg1 = TimerGroup::new(peripherals.TIMG1);
     //esp_hal_embassy::init(timg1.timer0);
@@ -216,15 +213,16 @@ async fn main(spawner: Spawner) {
 #[embassy_executor::task]
 async fn connection(mut controller: WifiController<'static>) {
     println!("start connection task");
-    println!("Device capabilities: {:?}", controller.get_capabilities());
+    println!("Device capabilities: {:?}", controller.capabilities());
     loop {
-        if esp_wifi::wifi::get_wifi_state() == WifiState::StaConnected {
+        if esp_wifi::wifi::wifi_state() == WifiState::StaConnected {
                 // wait until we're no longer connected
                 controller.wait_for_event(WifiEvent::StaDisconnected).await;
                 Timer::after(Duration::from_millis(5000)).await
         }
 
         if !matches!(controller.is_started(), Ok(true)) {
+            /*
             let client_config = Configuration::EapClient( EapClientConfiguration {
                 ssid: SSID.try_into().unwrap(),
                 identity: Some(USERNAME.try_into().unwrap()),
@@ -233,21 +231,20 @@ async fn connection(mut controller: WifiController<'static>) {
                 auth_method: AuthMethod::WPA2Enterprise,
                 ..Default::default()
             });
-            /*
+            */
             let client_config = Configuration::Client(ClientConfiguration {
                 ssid: SSID.try_into().unwrap(),
                 password: PASSWORD.try_into().unwrap(),
                 ..Default::default()
             });
-            */
             controller.set_configuration(&client_config).unwrap();
             println!("Starting wifi");
-            controller.start().await.unwrap();
+            controller.start_async().await.unwrap();
             println!("Wifi started!");
         }
         println!("About to connect...");
 
-        match controller.connect().await {
+        match controller.connect_async().await {
             Ok(_) => println!("Wifi connected!"),
             Err(e) => {
                 println!("Failed to connect to wifi: {e:?}");
