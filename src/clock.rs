@@ -9,7 +9,7 @@
 use embassy_time::Duration;
 use embassy_time::Instant;
 
-use esp_hal::macros::ram;
+//use esp_hal::macros::ram;
 
 use time::error::ComponentRange as TimeComponentRange;
 use time::OffsetDateTime;
@@ -23,7 +23,7 @@ use crate::worldtimeapi::WorldTimeApiClient as _;
 ///
 /// This is a statically allocated variable and it is placed in the RTC Fast
 /// memory, which survives deep sleep.
-#[ram(rtc_fast)]
+//#[ram(rtc_fast)]
 #[allow(unused)]
 static mut BOOT_TIME: (u64, i32) = (0, 0);
 

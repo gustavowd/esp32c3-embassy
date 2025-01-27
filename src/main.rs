@@ -33,7 +33,7 @@ mod worldtimeapi;
 use embassy_net::{tcp::TcpSocket, Ipv4Address, StackResources};
 use esp_alloc as _;
 use esp_backtrace as _;
-use esp_hal::{prelude::*, rng::Rng, timer::timg::TimerGroup};
+use esp_hal::{clock::CpuClock, rng::Rng, timer::timg::TimerGroup};
 use esp_println::println;
 use esp_wifi::{
     init,
@@ -71,11 +71,8 @@ async fn run() {
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) {
     esp_println::logger::init_logger_from_env();
-    let peripherals = esp_hal::init({
-        let mut config = esp_hal::Config::default();
-        config.cpu_clock = CpuClock::max();
-        config
-    });
+    let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
+    let peripherals = esp_hal::init(config);
 
     esp_alloc::heap_allocator!(72 * 1024);
 
@@ -94,8 +91,8 @@ async fn main(spawner: Spawner) {
     //let timg1 = TimerGroup::new(peripherals.TIMG1);
     //esp_hal_embassy::init(timg1.timer0);
 
-    use esp_hal::timer::systimer::{SystemTimer, Target};
-    let systimer = SystemTimer::new(peripherals.SYSTIMER).split::<Target>();
+    use esp_hal::timer::systimer::SystemTimer;
+    let systimer = SystemTimer::new(peripherals.SYSTIMER);
     esp_hal_embassy::init(systimer.alarm0);
 
     let config = embassy_net::Config::dhcpv4(Default::default());
