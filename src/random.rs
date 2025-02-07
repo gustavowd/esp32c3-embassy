@@ -7,7 +7,6 @@
 //! Random numbers generator
 
 use rand_core::CryptoRng;
-use rand_core::Error;
 use rand_core::RngCore;
 
 use esp_hal::rng::Rng;
@@ -37,11 +36,6 @@ impl RngCore for RngWrapper {
             let [random_value, _, _, _] = self.next_u32().to_be_bytes();
             *value = random_value;
         }
-    }
-
-    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
-        self.fill_bytes(dest);
-        Ok(())
     }
 }
 
