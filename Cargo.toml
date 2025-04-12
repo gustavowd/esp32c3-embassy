@@ -34,7 +34,7 @@ embassy-time        = "0.4.0"
 embedded-io-async   = "0.6.1"
 static_cell = "2.1.0"
 esp-println = { version = "0.13.1", features = ["esp32c3", "log"] }
-log = { version = "0.4.26" }
+log = { version = "0.4.27" }
 esp-alloc = { version = "0.6.0" }
 #"phy-enable-usb"
 esp-wifi = { version = "0.12.0", features = ["esp32c3", "wifi"]}
@@ -46,7 +46,7 @@ reqwless = { version = "0.13.0", features = ["embedded-tls", "log"] }
 # Random
 rand_core = "0.9.3"
 # Time
-time = { version = "0.3.39", default-features = false }
+time = { version = "0.3.41", default-features = false }
 
 [profile.dev]
 # Rust debug is too slow.
