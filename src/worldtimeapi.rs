@@ -25,6 +25,7 @@ use crate::http::Error as HttpError;
 /// Extend an HTTP client for querying World Time API
 pub trait WorldTimeApiClient: HttpClientTrait {
     /// Fetch the current time
+    #[allow(async_fn_in_trait)]
     async fn fetch_current_time(&mut self, timeout: Duration) -> Result<OffsetDateTime, Error> {
         let url = "https://worldtimeapi.org/api/timezone/America/Sao_Paulo.txt";
 

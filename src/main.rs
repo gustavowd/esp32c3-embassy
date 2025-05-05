@@ -38,11 +38,17 @@ use esp_println::println;
 use esp_wifi::{
     init,
     wifi::{
-        ClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiStaDevice, WifiState
+        ClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiState
         //AuthMethod, EapClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiStaDevice, WifiState
     },
     EspWifiController
 };
+
+//use esp_mbedtls::Tls;
+
+//use ieee2030_5_no_std_lib::http::Client as HttpClient;
+//use ieee2030_5_no_std_lib::random::RngWrapper;
+//use ieee2030_5_no_std_lib::ieee2030_5::IEEE20305;
 
 // When you are okay with using a nightly compiler it's better to use https://docs.rs/static_cell/2.1.0/static_cell/macro.make_static.html
 macro_rules! mk_static {
@@ -74,22 +80,22 @@ async fn main(spawner: Spawner) {
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
 
-    esp_alloc::heap_allocator!(72 * 1024);
+    esp_alloc::heap_allocator!(size: 90 * 1024);
 
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     let rng = Rng::new(peripherals.RNG);
+    //let mut tls = Tls::new(peripherals.SHA)
+    //    .unwrap()
+    //    .with_hardware_rsa(peripherals.RSA);
+    //tls.set_debug(5);
 
-    let init = &*mk_static!(
+    let esp_wifi_ctrl = &*mk_static!(
         EspWifiController<'static>,
         init(timg0.timer0, rng, peripherals.RADIO_CLK).unwrap()
     );
 
-    let wifi = peripherals.WIFI;
-    let (wifi_interface, controller) =
-        esp_wifi::wifi::new_with_mode(init, wifi, WifiStaDevice).unwrap();
-
-    //let timg1 = TimerGroup::new(peripherals.TIMG1);
-    //esp_hal_embassy::init(timg1.timer0);
+    let (controller, interfaces) = esp_wifi::wifi::new(esp_wifi_ctrl, peripherals.WIFI).unwrap();
+    let wifi_interface = interfaces.sta;
 
     use esp_hal::timer::systimer::SystemTimer;
     let systimer = SystemTimer::new(peripherals.SYSTIMER);
@@ -101,21 +107,10 @@ async fn main(spawner: Spawner) {
 
     // Init network stack
     let (stack, runner) = embassy_net::new(wifi_interface, config, mk_static!(StackResources<3>, StackResources::<3>::new()), seed);
-    /*
-    let stack = &*mk_static!(
-        Stack<WifiDevice<'_, WifiStaDevice>>,
-        Stack::new(
-            wifi_interface,
-            config,
-            mk_static!(StackResources<3>, StackResources::<3>::new()),
-            seed
-        )
-    );
-    */
 
     spawner.spawn(connection(controller)).ok();
     spawner.spawn(net_task(runner)).ok();
-    spawner.spawn(run()).ok();
+    //spawner.spawn(run()).ok();
 
     let mut rx_buffer = [0; 4096];
     let mut tx_buffer = [0; 4096];
@@ -136,26 +131,37 @@ async fn main(spawner: Spawner) {
         Timer::after(Duration::from_millis(500)).await;
     }
 
-    println!("Synchronize clock from server");
     //let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
+    //let mut http_client = HttpClient::new(stack, tls);
     let mut http_client = HttpClient::new(stack, RngWrapper::from(rng));
-    if let Ok(clock) = Clock::from_server(&mut http_client, Duration::from_secs(2)).await {
+
+    println!("Synchronize clock from server");
+    if let Ok(clock) = Clock::from_server(&mut http_client, Duration::from_secs(5)).await {
         println!("Clock: {:?}", clock);
+    }else{
+        println!("Failed to synchronize clock");
     }
 
+    /*
     let url = "https://worldtimeapi.org/api/timezone/America/Sao_Paulo.txt";
+    //let url = "https://www.google.com";
 
     loop {
-        match http_client.get_request(url, Duration::from_secs(2)).await {
+        match http_client.get_request(url, Duration::from_secs(5)).await {
             Ok(resp) => {
-                let ret = heapless::String::from_utf8(resp).unwrap();
-                println!("Response: {}", ret);
+                if let Ok(ret) = heapless::String::from_utf8(resp){
+                    println!("Response: {}", ret);
+                }
                 break;
             },
             Err(err) => println!("Response timeout: {:?}", err)
         }
     }
+    */
 
+    //ieee2030_5_no_std_lib::ieee2030_5::set_server_url("https://ecee.pb.utfpr.edu.br:8443");
+    //let teste = http_client.get_dcap().await;
+    //println!("Dcap {:?}", teste);
     /*
     let data = br#"{"username":"Marcel","password":"supersecret","this is a":"test"}"#;
     let url2 = "https://httpdump.app/dumps/ddc0c046-5b12-4742-b757-5a7dcc11d65d";
@@ -249,20 +255,14 @@ async fn connection(mut controller: WifiController<'static>) {
             Ok(_) => println!("Wifi connected!"),
             Err(e) => {
                 println!("Failed to connect to wifi: {e:?}");
-                Timer::after(Duration::from_millis(5000)).await
+                Timer::after(Duration::from_millis(10000)).await
             }
         }
     }
 }
 
-/*
-#[embassy_executor::task]
-async fn net_task(stack: &'static Stack<WifiDevice<'static, WifiStaDevice>>) {
-    stack.run().await
-}
-*/
 
 #[embassy_executor::task]
-async fn net_task(mut runner: embassy_net::Runner<'static, WifiDevice<'static, WifiStaDevice>>) -> ! {
+async fn net_task(mut runner: embassy_net::Runner<'static, WifiDevice<'static>>) {
     runner.run().await
 }

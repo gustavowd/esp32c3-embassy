@@ -29,6 +29,7 @@ use heapless::Vec;
 use rand_core::RngCore as _;
 
 use crate::RngWrapper;
+//use esp_mbedtls::Tls;
 
 /// Response size
 const RESPONSE_SIZE: usize = 4096;
@@ -39,13 +40,14 @@ const RESPONSE_SIZE: usize = 4096;
 /// [`WorldTimeApiClient`][crate::worldtimeapi::WorldTimeApiClient].
 pub trait ClientTrait {
     /// Send an HTTP request
-    #[allow(unused)]
+    #[allow(unused, async_fn_in_trait)]
     async fn get_request(&mut self, url: &str, timeout: Duration) -> Result<Vec<u8, RESPONSE_SIZE>, Error>;
-    #[allow(unused)]
+    #[allow(unused, async_fn_in_trait)]
     async fn post_request(&mut self, url: &str, ct: ContentType, body: &[u8]) -> Result<Vec<u8, RESPONSE_SIZE>, Error>;
 }
 
 /// HTTP client
+//pub struct Client<'a,'d> {
 pub struct Client<'a> {
     /// Wifi stack
     stack: Stack<'a>,
@@ -53,26 +55,29 @@ pub struct Client<'a> {
     /// Random numbers generator
     rng: RngWrapper,
 
+    //tls: esp_mbedtls::Tls<'d>,
+
     /// TCP client state
     tcp_client_state: TcpClientState<1, 4096, 4096>,
 
-    /// Buffer for received TLS data
+    // Buffer for received TLS data
     read_record_buffer: [u8; 16640],
 
-    /// Buffer for transmitted TLS data
+    // Buffer for transmitted TLS data
     write_record_buffer: [u8; 16640],
 }
 
+//impl<'a,'d> Client<'a,'d> {
 impl<'a> Client<'a> {
     /// Create a new client
-    pub fn new(stack: Stack<'a>, rng: RngWrapper) -> Self {
+    pub fn new(stack: Stack<'a>, rng: RngWrapper/*tls: esp_mbedtls::Tls<'d>*/) -> Self { //, rng: RngWrapper
         debug!("Create TCP client state");
         let tcp_client_state = TcpClientState::<1, 4096, 4096>::new();
 
         Self {
             stack,
             rng,
-
+            //tls,
             tcp_client_state,
 
             read_record_buffer: [0_u8; 16640],
@@ -89,18 +94,66 @@ impl ClientTrait for Client<'static> {
         let dns_socket = DnsSocket::new(self.stack);
 
         let seed = self.rng.next_u64();
+
+        /*
+        let tls_config = TlsConfig::new(
+            reqwless::TlsVersion::Tls1_3,
+            reqwless::Certificates {
+                ca_chain: None,
+                certificate: None,
+                private_key: None,
+                password: None,
+                //ca_chain: reqwless::X509::pem(concat!(include_str!(".././certs/www.google.com.pem"), "\0").as_bytes()).ok(),
+                //certificate: reqwless::X509::pem(concat!(include_str!(".././certs/certificate.pem"), "\0").as_bytes()).ok(),
+                //private_key: reqwless::X509::pem(concat!(include_str!(".././certs/private_key.pem"), "\0").as_bytes()).ok(), 
+                //..Default::default()
+            },
+            self.tls.reference(), // Will use hardware acceleration
+        );
+        */
+
         let tls_config = TlsConfig::new(
             seed,
             &mut self.read_record_buffer,
             &mut self.write_record_buffer,
             TlsVerify::None,
         );
+        
+        /*
+        let tls_config;
+        if let Some(cert) = cert {
+            if let Some(key) = key {
+                tls_config = TlsConfig::new(
+                    seed,
+                    &mut self.read_record_buffer,
+                    &mut self.write_record_buffer,
+                    TlsVerify::Psk { identity: cert, psk: key },
+                );
+            }else{
+                tls_config = TlsConfig::new(
+                    seed,
+                    &mut self.read_record_buffer,
+                    &mut self.write_record_buffer,
+                    TlsVerify::None,
+                );
+            }
+        }else{
+            tls_config = TlsConfig::new(
+                seed,
+                &mut self.read_record_buffer,
+                &mut self.write_record_buffer,
+                TlsVerify::None,
+            );
+        }
+        */
+        
 
         debug!("Create TCP client");
         let tcp_client = TcpClient::new(self.stack, &self.tcp_client_state);
 
         debug!("Create HTTP client");
         let mut client = HttpClient::new_with_tls(&tcp_client, &dns_socket, tls_config);
+        //let mut client = HttpClient::new(&tcp_client, &dns_socket);
 
         debug!("Create HTTP request");
         let mut buffer = [0_u8; 4096];
@@ -137,11 +190,37 @@ impl ClientTrait for Client<'static> {
             TlsVerify::None,
         );
 
+        /*
+        let tls_config = TlsConfig::new(
+            seed,
+            &mut self.read_record_buffer,
+            &mut self.write_record_buffer,
+            TlsVerify::None,
+        );
+        */
+
+        /*
+        let tls_config = TlsConfig::new(
+            reqwless::TlsVersion::Tls1_2,
+            reqwless::Certificates {
+                //ca_chain: reqwless::X509::pem(CERT.as_bytes()).ok(),
+                //certificate: reqwless::X509::pem(concat!(include_str!(".././pki/ECC-secp256r1/load_client01.pem"), "\0").as_bytes()).ok(),
+                //private_key: reqwless::X509::pem(concat!(include_str!(".././pki/ECC-secp256r1/load_client01.key"), "\0").as_bytes()).ok(),
+                //password: None,
+                //ca_chain: None,
+                //ca_chain: reqwless::X509::pem(concat!(include_str!(".././pki/ECC-secp256r1/ca.pem"), "\0").as_bytes()).ok()
+                ..Default::default()
+            },
+            self.tls.reference(), // Will use hardware acceleration
+        );
+        */
+
         debug!("Create TCP client");
         let tcp_client = TcpClient::new(self.stack, &self.tcp_client_state);
 
         debug!("Create HTTP client");
         let mut client = HttpClient::new_with_tls(&tcp_client, &dns_socket, tls_config);
+        //let mut client = HttpClient::new(&tcp_client, &dns_socket);
 
         debug!("Create HTTP request");
         let mut buffer = [0_u8; 4096];
