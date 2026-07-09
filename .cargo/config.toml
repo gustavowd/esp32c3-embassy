@@ -5,6 +5,8 @@ runner = "espflash flash --baud=921600 --monitor" # Select this runner for espfl
 
 [env]
 ESP_LOG="info"
+# Define o tamanho da arena que o embassy-executor v0.10.0 vai usar
+EMBASSY_EXECUTOR_TASK_ARENA_SIZE = "131072"
 
 [build]
 rustflags = [
