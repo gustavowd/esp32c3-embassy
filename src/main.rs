@@ -40,8 +40,11 @@ use esp_hal::{
     interrupt::software::SoftwareInterruptControl,
     ram,
     rng::Rng,
+    time::Rate,
     timer::timg::TimerGroup,
+    i2c::master::{I2c, Config as MasterConfig}
 };
+
 use esp_println::println;
 
 use esp_radio::wifi::{
@@ -180,8 +183,22 @@ async fn main(spawner: Spawner) {
     );
     let dns_client = DnsSocket::new(stack);
 
+    esp_println::println!("Initializing I2C Slave on I2C0...");
+
+    // Configure SDA and SCL pins
+    let sda = peripherals.GPIO2;
+    let scl = peripherals.GPIO3;
+
+    // Create a new I2C master instance with default configuration and the specified SDA and SCL pins
+    let config = MasterConfig::default().with_frequency(Rate::from_khz(400));   // Set I2C frequency to 400 kHz
+    let mut _i2c_master = I2c::new(peripherals.I2C0, config)
+        .unwrap()
+        .with_sda(sda)
+        .with_scl(scl)
+        .into_async();
+
     loop {
-Timer::after(Duration::from_millis(1000)).await;
+        Timer::after(Duration::from_millis(1000)).await;
 
         let mut client = HttpClient::new(&tcp_client, &dns_client);
         let mut rx_buf = [0u8; 4096];
