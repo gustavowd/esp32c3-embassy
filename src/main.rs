@@ -36,6 +36,7 @@ use embassy_net::{
 use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::{
+    Async,
     clock::CpuClock,
     interrupt::software::SoftwareInterruptControl,
     ram,
@@ -108,6 +109,28 @@ const PASSWORD: &str = "12345678";
 //const USERNAME: &str = "gustavo";
 //const PASSWORD: &str = "12345678";
 
+// O tipo do driver I2C utiliza a assinatura: I2c<'static, Async>
+#[embassy_executor::task]
+async fn i2c_worker_task(mut i2c: I2c<'static, Async>) {
+    //info!("Tarefa I2C iniciada com sucesso!");
+    
+    let mut buffer = [0u8; 2];
+    let device_address = 0x55;
+
+    loop {
+        // Exemplo de leitura assíncrona periódica dentro da task
+        // Substitua pelo registrador correto do seu sensor
+        if let Err(err) = i2c.write_read_async(device_address, &[0x00], &mut buffer).await {
+            log::error!("Erro de comunicação I2C: {:?}", err);
+        } else {
+            //info!("Dados lidos do I2C: {:?}", buffer);
+        }
+
+        // Aguarda 1 segundo antes da próxima leitura
+        embassy_time::Timer::after_secs(1).await;
+    }
+}
+
 #[embassy_executor::task]
 async fn run() {
     loop {
@@ -117,7 +140,7 @@ async fn run() {
 }
 
 #[esp_hal::main]
-async fn main(spawner: Spawner) {
+async fn main(spawner: Spawner) -> ! {
     esp_println::logger::init_logger_from_env();
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
@@ -191,11 +214,14 @@ async fn main(spawner: Spawner) {
 
     // Create a new I2C master instance with default configuration and the specified SDA and SCL pins
     let config = MasterConfig::default().with_frequency(Rate::from_khz(400));   // Set I2C frequency to 400 kHz
-    let mut _i2c_master = I2c::new(peripherals.I2C0, config)
+    let i2c_master = I2c::new(peripherals.I2C0, config)
         .unwrap()
         .with_sda(sda)
         .with_scl(scl)
         .into_async();
+
+    // Dispara (spawn) a tarefa passando o driver por parâmetro
+    spawner.spawn(i2c_worker_task(i2c_master).unwrap());
 
     loop {
         Timer::after(Duration::from_millis(1000)).await;
