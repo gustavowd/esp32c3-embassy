@@ -62,6 +62,8 @@ use reqwless::{
     request::{Method, RequestBuilder},
 };
 
+use mpu6050_async_driver::{Address, I2cBus, Mpu6050Async};
+
 //use esp_mbedtls::Tls;
 
 //use ieee2030_5_no_std_lib::http::Client as HttpClient;
@@ -109,21 +111,77 @@ const PASSWORD: &str = "12345678";
 //const USERNAME: &str = "gustavo";
 //const PASSWORD: &str = "12345678";
 
+async fn fail(message: &str) -> ! {
+    println!("{message}");
+
+    loop {
+        Timer::after(Duration::from_millis(1_000)).await;
+    }
+}
+
 // O tipo do driver I2C utiliza a assinatura: I2c<'static, Async>
 #[embassy_executor::task]
-async fn i2c_worker_task(mut i2c: I2c<'static, Async>) {
+async fn i2c_worker_task(i2c: I2c<'static, Async>) {
     //info!("Tarefa I2C iniciada com sucesso!");
+    //let mut buffer = [0u8; 2];
+    //let device_address = 0x55;
     
-    let mut buffer = [0u8; 2];
-    let device_address = 0x55;
+    let bus = I2cBus::new(i2c, Some(Address::PRIMARY));
+    let mut sensor = Mpu6050Async::new(bus);
+
+    if sensor.setup().await.is_err() {
+        fail("MPU-6050 setup failed").await;
+    }
+
+    let device_id = match sensor.get_device_id().await {
+        Ok(id) => id,
+        Err(_) => fail("failed to read MPU-6050 device id").await,
+    };
+
+    let connected = match sensor.is_connected().await {
+        Ok(value) => value,
+        Err(_) => fail("failed to validate MPU-6050 connection").await,
+    };
+
+    if !connected {
+        fail("invalid MPU-6050 WHO_AM_I").await;
+    }
+
+    Timer::after(Duration::from_millis(1000)).await;
+
+    println!("MPU-6050 full motion data initialized!");
+    println!("WHO_AM_I: 0x{:02X}", device_id);
+    println!("I2C: SDA=GPIO21, SCL=GPIO22, address=0x68");
+    println!("Accel: +/-4g | Gyro: +/-250 dps");
+    println!("Runtime: Embassy async executor + async I2C");
+    println!("");
 
     loop {
         // Exemplo de leitura assíncrona periódica dentro da task
         // Substitua pelo registrador correto do seu sensor
+        /*
         if let Err(err) = i2c.write_read_async(device_address, &[0x00], &mut buffer).await {
             log::error!("Erro de comunicação I2C: {:?}", err);
         } else {
             //info!("Dados lidos do I2C: {:?}", buffer);
+        }
+        */
+        match sensor.get_motion().await {
+            Ok(motion) => {
+                println!(
+                    "accel (m/s2): x={:>7.3} y={:>7.3} z={:>7.3} | gyro (dps): x={:>7.3} y={:>7.3} z={:>7.3} | temp: {:>6.2} C",
+                    motion.accel.0,
+                    motion.accel.1,
+                    motion.accel.2,
+                    motion.gyro.0,
+                    motion.gyro.1,
+                    motion.gyro.2,
+                    motion.temperature_celsius,
+                );
+            }
+            Err(_) => {
+                println!("failed to read MPU-6050 motion data");
+            }
         }
 
         // Aguarda 1 segundo antes da próxima leitura

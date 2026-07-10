@@ -44,6 +44,7 @@ reqwless = { version = "0.14.0", default-features = false }
 rand_core = "0.10.1"
 # Time
 time = { version = "0.3.53", default-features = false }
+mpu6050-async-driver = "0.1.0"
 
 #ieee2030_5_no_std_lib = { path = "../ieee2030_5_no_std_lib"}
 
